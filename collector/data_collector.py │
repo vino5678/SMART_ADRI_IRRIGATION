@@ -1,0 +1,37 @@
+# collector/data_collector.py
+import paho.mqtt.client as mqtt
+import sqlite3
+import json
+import os
+
+# Create database
+os.makedirs("database", exist_ok=True)
+conn = sqlite3.connect("database/irrigation.db")
+c = conn.cursor()
+c.execute("""
+CREATE TABLE IF NOT EXISTS sensor_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Rainfall INTEGER,
+    Temperature INTEGER,
+    Humidity INTEGER,
+    Soil_Type TEXT,
+    Crop TEXT,
+    Season TEXT
+)
+""")
+conn.commit()
+
+def on_message(client, userdata, msg):
+    data = json.loads(msg.payload.decode())
+    c.execute("""
+    INSERT INTO sensor_data (Rainfall, Temperature, Humidity, Soil_Type, Crop, Season)
+    VALUES (?,?,?,?,?,?)
+    """, (data["Rainfall"], data["Temperature"], data["Humidity"], data["Soil_Type"], data["Crop"], data["Season"]))
+    conn.commit()
+    print("Data saved:", data)
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect("broker.hivemq.com", 1883)
+client.subscribe("smart_adri_irrigation/sensor")
+client.loop_forever()
